@@ -1,0 +1,148 @@
+local HushChams_Settings = {
+	Enabled = true,
+	PhysicsSenderRate = 16,
+	Material = Enum.Material.ForceField,
+	Color = Color3.fromRGB(255, 255, 255),
+	Transparency = 0.65,
+	HistoryLength = 1, 
+	RigType = "R15" -- R6 or R15
+}
+
+
+
+
+
+
+local cloneref = cloneref or function(obj) return obj end
+local Players = cloneref(game:GetService("Players"))
+local RunService = cloneref(game:GetService("RunService"))
+local Stats = cloneref(game:GetService("Stats"))
+local LocalPlayer = Players.LocalPlayer
+local HushsChams = cloneref(Instance.new("Folder"))
+HushsChams.Name = "HushsChams"
+HushsChams.Parent = workspace
+local history = {}
+local lastHistUpdate = nil
+
+
+
+local function getPing()
+	local item = Stats.Network.ServerStatsItem:FindFirstChild("Data Ping") -- this just grabs ur ping
+	if item then
+		return item:GetValue()
+	end
+	return 0
+end
+
+print("[divine.lua] server position chams | by hush (@mjzt on yt)")
+
+RunService.RenderStepped:Connect(function()
+	if not HushChams_Settings.Enabled then
+		HushsChams:ClearAllChildren()
+		return
+	end
+
+	local char = LocalPlayer.Character
+	if not char then
+		HushsChams:ClearAllChildren()
+		return
+	end
+
+	local hrp = char:FindFirstChild("HumanoidRootPart")
+	if not hrp then
+		HushsChams:ClearAllChildren()
+		return
+	end
+
+	
+	local rn = os.clock()
+
+	
+	local lastUp = lastHistUpdate or rn -- last update time (mainly so this doesnt go insane)
+	lastHistUpdate = rn
+
+	
+	history[#history + 1] = {
+		t = rn,
+		cf = hrp.CFrame
+	}
+
+
+	local cutoff = rn - HushChams_Settings.HistoryLength
+	while history[1] and history[1].t < cutoff do
+		table.remove(history, 1) -- trim old stuff so it doesnt fuck up
+	end
+
+	local ping = getPing() / 1000
+	local senderrate = 1 / HushChams_Settings.PhysicsSenderRate
+	local delay = ping + senderrate -- total server delay
+
+
+	local divinelua = rn - delay -- time we wanna rewind to
+
+	
+	local serverCF = hrp.CFrame -- fallback js incase nothing changes
+
+	
+	for i = #history, 1, -1 do
+		local frame = history[i]
+		if frame and frame.t <= divinelua then -- cham backwards till we find something usable
+			serverCF = frame.cf
+			break
+		end
+	end
+
+	
+	local offset = CFrame.new()
+	if HushChams_Settings.RigType == "R6" then -- this js fixes the chams bein in the floor
+		offset = CFrame.new(0, 1.5, 0)
+	elseif HushChams_Settings.RigType == "R15" then
+		offset = CFrame.new(0, 0, 0)
+	end
+
+	HushsChams:ClearAllChildren()
+
+	char.Archivable = true
+	local clone = char:Clone()
+
+	for _, obj in ipairs(clone:GetDescendants()) do
+		if obj:IsA("Accessory")
+		or obj:IsA("Humanoid")
+		or obj:IsA("Motor6D")
+		or obj:IsA("Weld")
+		or obj:IsA("Script")
+		or obj:IsA("LocalScript")
+		or obj.Name == "HumanoidRootPart"
+		or (obj:IsA("Decal") and obj.Name == "face") then
+			obj:Destroy()
+
+		elseif obj:IsA("BasePart") or obj:IsA("MeshPart") then
+			obj.Anchored = true
+			obj.CanCollide = false
+			obj.CanTouch = false
+			obj.CanQuery = false
+			obj.Material = HushChams_Settings.Material
+			obj.Transparency = HushChams_Settings.Transparency
+			obj.Color = HushChams_Settings.Color
+			obj.CastShadow = false
+
+			for _, v in ipairs(obj:GetChildren()) do
+				if v:IsA("TouchTransmitter") then
+					v:Destroy()
+				end
+			end
+		end
+	end
+
+	
+	clone:PivotTo(serverCF * offset) -- move cham to server-ish spot
+	clone.Parent = HushsChams
+
+	
+	task.delay(0.03, function()
+		if clone and clone.Parent then
+			clone:Destroy() 
+		end
+	end)
+end)
+
